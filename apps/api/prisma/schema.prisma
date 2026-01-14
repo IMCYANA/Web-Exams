@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum LoginStatus {
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id           String             @id @default(uuid())
+  email        String             @unique
+  name         String?
+  phoneNumber  String?
+  profileImage String?
+  passwordHash String
+  role         Role               @default(USER) // USER, ADMIN
+  credit       Decimal            @default(0.00) @db.Decimal(10, 2)
+  createdAt    DateTime           @default(now())
+  orders       Order[]
+  topups       TopupTransaction[]
+  loginLogs    LoginLog[]
+}
+
+model TopupTransaction {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  amount     Decimal  @db.Decimal(10, 2)
+  method     String // "BANK_TRANSFER"
+  status     String // "PENDING", "COMPLETED", "FAILED", "DUPLICATE"
+  proofUrl   String?
+  refNo      String?  @unique // EasySlip transRef - UNIQUE prevents duplicate
+  fileHash   String?  @unique // SHA256 of file - UNIQUE prevents duplicate
+  failReason String? // Reason for failure (for audit)
+  createdAt  DateTime @default(now())
+}
+
+model Game {
+  id             String        @id @default(uuid())
+  title          String
+  slug           String        @unique
+  category       String        @default("Starter")
+  imageUrl       String?
+  detailImageUrl String?
+  description    String?
+  price          Decimal       @default(0) // Base price or starting at
+  isActive       Boolean       @default(true)
+  options        GameOption[]
+  stock          GameAccount[] // Legacy direct relation or aggregation
+  createdAt      DateTime      @default(now())
+}
+
+model GameOption {
+  id        String        @id @default(uuid())
+  name      String
+  price     Decimal
+  image     String?
+  gameId    String
+  game      Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  stock     GameAccount[]
+  createdAt DateTime      @default(now())
+}
+
+model GameAccount {
+  id             String      @id @default(uuid())
+  gameId         String
+  game           Game        @relation(fields: [gameId], references: [id])
+  gameOptionId   String?
+  gameOption     GameOption? @relation(fields: [gameOptionId], references: [id])
+  username       String? // Encrypted
+  password       String? // Encrypted
+  additionalData Json? // Encrypted (e.g., security questions)
+  isSold         Boolean     @default(false)
+  orderId        String?     @unique
+  order          Order?      @relation(fields: [orderId], references: [id])
+  addedBy        String // Admin ID for Audit
+  createdAt      DateTime    @default(now())
+}
+
+model Order {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  totalAmount Decimal
+  status      OrderStatus // PENDING, COMPLETED, FAILED, REFUNDED
+  paymentId   String? // Stripe/Omise ID
+  items       GameAccount[]
+  createdAt   DateTime      @default(now())
+}
+
+model LoginLog {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  ipAddress String
+  userAgent String
+  status    LoginStatus // SUCCESS, FAILED
+  createdAt DateTime    @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  adminId   String
+  action    String // "CREATE_GAME", "DELETE_ACCOUNT"
+  details   Json
+  ipAddress String
+  createdAt DateTime @default(now())
+}
+
+model BankAccount {
+  id            String   @id @default(uuid())
+  bankName      String // e.g. KBank, SCB, PromptPay
+  accountName   String
+  accountNumber String
+  type          String   @default("BANK") // BANK, PROMPTPAY
+  qrCode        String? // URL to QR Code image
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  image     String? // URL
+  isActive  Boolean  @default(true) // published
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSettings {
+  id        String   @id @default(uuid())
+  key       String   @unique // e.g. "terms_of_service"
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

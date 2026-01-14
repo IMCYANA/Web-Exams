@@ -1,0 +1,26 @@
+{
+  "name": "digital-goods-webshop",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "@nestjs/platform-express": "^11.1.11",
+    "@types/multer": "^2.0.0",
+    "multer": "^2.0.2"
+  }
+}
